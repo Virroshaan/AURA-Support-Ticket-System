@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- No-cache -->
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
+  <title>AURA Admin Login</title>
+
+  <style>
+    :root{
+      --bg-1:#0b1020;
+      --bg-2:#0a1430;
+      --accent:#2563eb;
+      --accent-2:#22d3ee;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --ring:#3b82f6;
+      --radius:18px;
+      --shadow-lg: 0 10px 30px rgba(0,0,0,.35);
+    }
+
+    *{ box-sizing:border-box }
+    html,body{ height:100% }
+    body{
+      margin:0; color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      background:
+        radial-gradient(1200px 800px at 10% 20%, #0b1538 0%, transparent 60%),
+        radial-gradient(900px 700px at 80% 30%, #0a2a5a 0%, transparent 60%),
+        radial-gradient(800px 800px at 60% 80%, #091a3a 0%, transparent 60%),
+        linear-gradient(120deg, var(--bg-1), var(--bg-2));
+      overflow:hidden;
+    }
+    body::after{
+      content:""; position:fixed; inset:0; z-index:-2; pointer-events:none;
+      background: radial-gradient(70% 60% at 70% 55%, transparent 0%, rgba(0,0,0,.30) 100%);
+    }
+
+    /* WebGL sits behind UI */
+    #bg3d{ position:fixed; inset:0; z-index:-3; display:block; pointer-events:none; }
+    @media (prefers-reduced-motion: reduce){ #bg3d{ display:none } }
+
+    /* soft blobs (extra depth) */
+    .mesh{ position:fixed; inset:-20vmax; filter: blur(60px) saturate(140%); z-index:-1; pointer-events:none; }
+    .blob{ position:absolute; width:60vmax; height:60vmax; border-radius:50%; opacity:.28; mix-blend-mode:screen;
+      background: radial-gradient(circle at 30% 30%, var(--accent), transparent 60%); animation: float1 22s ease-in-out infinite; }
+    .blob.b2{ background: radial-gradient(circle at 30% 30%, var(--accent-2), transparent 60%); animation: float2 26s ease-in-out infinite; }
+    .blob.b3{ background: radial-gradient(circle at 30% 30%, #8b5cf6, transparent 60%); animation: float3 28s ease-in-out infinite; }
+    @keyframes float1{ 0%{transform:translate(-20%,-10%)} 50%{transform:translate(10%,5%)} 100%{transform:translate(-20%,-10%)} }
+    @keyframes float2{ 0%{transform:translate(40%,-20%)} 50%{transform:translate(0%,10%)} 100%{transform:translate(40%,-20%)} }
+    @keyframes float3{ 0%{transform:translate(10%,30%)} 50%{transform:translate(-10%,-10%)} 100%{transform:translate(10%,30%)} }
+
+    .wrap{
+      height:100%; display:grid; grid-template-columns: 1.2fr 0.9fr;
+      align-items:center; gap:2rem; padding: min(6vw, 80px);
+    }
+
+    /* left hero */
+    .hero{ max-width:720px; line-height:1.15 }
+    .kicker{
+      display:inline-flex; align-items:center; gap:.5rem; padding:.35rem .7rem;
+      border:1px solid rgba(255,255,255,.08); border-radius:999px; font-size:.9rem; color:var(--muted);
+      background:rgba(255,255,255,.02); backdrop-filter:saturate(120%) blur(6px);
+      margin-bottom:10px;
+    }
+    .title{
+      margin:10px 0 10px; font-size:clamp(36px,5vw,56px); font-weight:800; letter-spacing:.2px; text-wrap:balance;
+      text-shadow:0 6px 24px rgba(0,0,0,.35);
+    }
+    .sub{ color:#cbd5e1; max-width:52ch; line-height:1.55; font-size:1.05rem }
+    .stats{ display:flex; gap:18px; margin-top:26px; flex-wrap:wrap }
+    .chip{ border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.03); border-radius:12px; padding:10px 14px; color:#cbd5e1; font-size:.95rem }
+
+    /* card */
+    .card{
+      position:relative; background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.06));
+      border:1px solid rgba(255,255,255,.18); box-shadow: var(--shadow-lg);
+      backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%);
+      border-radius: var(--radius); padding:28px;
+    }
+    .card::before{
+      content:""; position:absolute; inset:-1px; border-radius:inherit;
+      background: radial-gradient(1200px 600px at 50% -10%, rgba(37,99,235,.35), transparent 60%);
+      pointer-events:none; z-index:-1;
+    }
+    .card h2{ margin:6px 0 2px; font-size:1.4rem }
+    .muted{ color:var(--muted); font-size:.92rem }
+
+    /* form */
+    form.f{ display:flex; flex-direction:column; gap:16px; margin-top:18px; width:100%; max-width: 320px; }
+    .input{
+      position:relative; background: rgba(10,14,28,.6);
+      border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:12px 14px 12px 44px;
+      transition: border-color .2s, box-shadow .2s, background .2s;
+    }
+    .input:focus-within{ border-color: var(--ring); box-shadow: 0 0 0 4px rgba(37,99,235,.18); background: rgba(10,14,28,.75) }
+    .input input{ width:100%; border:0; outline:0; background:transparent; color:var(--text); font-size:1rem }
+    .icon{ position:absolute; left:14px; top:50%; transform:translateY(-50%); opacity:.7 }
+
+    /* button ripple */
+    #submit{
+      appearance:none; border:0; outline:0; cursor:pointer; width:100%; padding:12px 16px; margin-top:6px;
+      border-radius:12px; font-weight:700; font-size:1rem; color:white;
+      background: linear-gradient(90deg, var(--accent), #1e40af);
+      box-shadow: 0 10px 24px rgba(37,99,235,.35), inset 0 0 0 1px rgba(255,255,255,.18);
+      position:relative; overflow:hidden; transition: transform .08s ease-out, filter .2s;
+    }
+    #submit:active{ transform: translateY(1px) scale(.997) }
+    #submit .ripple{
+      position:absolute; border-radius:50%; width:10px; height:10px; transform:translate(-50%,-50%) scale(0);
+      background: rgba(255,255,255,.45); animation:ripple .6s ease-out forwards; pointer-events:none;
+    }
+    @keyframes ripple{ to{ transform:translate(-50%,-50%) scale(18); opacity:0 } }
+
+    .footer-links{ margin-top:10px; text-align:center; font-size:.9rem }
+    .footer-links a{ color:#cbd5e1; text-decoration:none; border-bottom:1px dashed rgba(203,213,225,.35) }
+    .footer-links a:hover{ color:white; border-bottom-color:transparent }
+
+    @media (max-width:980px){
+      .wrap{ grid-template-columns:1fr; gap:28px; padding:24px }
+      .hero{ order:2 }
+      .card{ order:1 }
+    }
+  </style>
+
+  <!-- keep your auth logic -->
+  <script type="module" src="login.js" defer></script>
+</head>
+<body>
+  <canvas id="bg3d" aria-hidden="true"></canvas>
+
+  <!-- soft blobs -->
+  <div class="mesh">
+    <div class="blob b1" style="top:10%; left:5%"></div>
+    <div class="blob b2" style="top:0%; right:0%"></div>
+    <div class="blob b3" style="bottom:-10%; left:35%"></div>
+  </div>
+
+  <main class="wrap">
+    <section class="hero">
+      <span class="kicker">Hello Admin <span aria-hidden="true">👋</span></span>
+      <h1 class="title">Welcome to <span style="color:var(--accent)">AURA</span></h1>
+      <p class="sub">
+        Manage tickets, monitor issues in real time, and keep operations civilized. Smooth, secure, and actually pleasant to use.
+      </p>
+      <div class="stats">
+        <div class="chip">Cloud Synced</div>
+        <div class="chip">Instant Updates</div>
+        <div class="chip">Reliable Support</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="card" id="loginCard">
+        <div class="muted">Welcome back, Admin.</div>
+        <h2>Sign in to continue</h2>
+
+        <form class="f">
+          <label class="input">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 8l8 5 8-5" stroke="currentColor" stroke-width="1.6" opacity=".8"/>
+              <rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" stroke-width="1.6" opacity=".5"/>
+            </svg>
+            <input type="email" id="email" placeholder="Enter your organization email" required />
+          </label>
+
+          <label class="input">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="4" y="10" width="16" height="10" rx="2" stroke="currentColor" stroke-width="1.6" opacity=".7"/>
+              <path d="M8 10V8a4 4 0 1 1 8 0v2" stroke="currentColor" stroke-width="1.6" opacity=".7"/>
+            </svg>
+            <input type="password" id="password" placeholder="Enter your password" required />
+          </label>
+
+          <button id="submit" type="submit">Login</button>
+        </form>
+
+        <div class="footer-links">
+          <a href="#">Forgot password?</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Rotating Holographic AURA Logo + Starfield -->
+  <script type="module">
+    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+
+    const canvas = document.getElementById('bg3d');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 1000);
+    camera.position.set(0, 0, 30);
+
+    function resize(){
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      renderer.setPixelRatio(dpr);
+      renderer.setSize(innerWidth, innerHeight);
+      camera.aspect = innerWidth/innerHeight;
+      camera.updateProjectionMatrix();
+    }
+    resize(); addEventListener('resize', resize);
+
+    // Moving starfield
+    const STAR_COUNT = 1200;
+    const starPos = new Float32Array(STAR_COUNT*3);
+    for(let i=0;i<STAR_COUNT;i++){
+      starPos[i*3+0]=(Math.random()-0.5)*360;
+      starPos[i*3+1]=(Math.random()-0.5)*240;
+      starPos[i*3+2]=(Math.random()-0.5)*360;
+    }
+    const starGeo = new THREE.BufferGeometry();
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos,3));
+    const starMat = new THREE.PointsMaterial({ size:0.7, color:0xaeeaff, transparent:true, opacity:.7 });
+    const stars = new THREE.Points(starGeo, starMat);
+    scene.add(stars);
+
+    // Group that holds the logo setpiece (center-top, always visible)
+    const hero = new THREE.Group();
+    hero.position.set(0, 10, -1);
+    scene.add(hero);
+
+    // Soft halo behind the logo
+    function makeHalo(size){
+      const c=document.createElement('canvas'); c.width=c.height=256;
+      const x=c.getContext('2d');
+      const g=x.createRadialGradient(128,128,10,128,128,120);
+      g.addColorStop(0,'rgba(59,130,246,.9)');
+      g.addColorStop(.5,'rgba(59,130,246,.25)');
+      g.addColorStop(1,'rgba(59,130,246,0)');
+      x.fillStyle=g; x.fillRect(0,0,256,256);
+      const t=new THREE.CanvasTexture(c); t.needsUpdate=true;
+      const mat=new THREE.MeshBasicMaterial({ map:t, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending });
+      const geo=new THREE.PlaneGeometry(size,size);
+      return new THREE.Mesh(geo,mat);
+    }
+    const halo = makeHalo(10);
+    hero.add(halo);
+
+    // Thin ring behind logo
+    const ringGeo = new THREE.RingGeometry(5.8, 6.2, 96);
+    const ringMat = new THREE.MeshBasicMaterial({ color:0x3b82f6, transparent:true, opacity:.35, side:THREE.DoubleSide });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI/2.6;
+    hero.add(ring);
+
+    // Logo planes: base + holographic ghost + scanlines overlay
+    let logoBase=null, logoGhost=null, scanlines=null;
+
+    function scanlineTexture(){
+      const c=document.createElement('canvas'); c.width=4; c.height=64;
+      const x=c.getContext('2d');
+      x.fillStyle='rgba(255,255,255,0)'; x.fillRect(0,0,4,64);
+      x.fillStyle='rgba(255,255,255,0.12)';
+      for(let y=0;y<64;y+=4){ x.fillRect(0,y,4,1) }
+      const t=new THREE.CanvasTexture(c);
+      t.wrapS=t.wrapT=THREE.RepeatWrapping;
+      t.repeat.set(64, 8);
+      return t;
+    }
+
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      './logo.png',      // transparent PNG next to index.html
+      (tex)=>{
+        tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+        const w = tex.source.data?.width || 512;
+        const h = tex.source.data?.height || 512;
+        const height = 7.5;
+        const aspect = w/h;
+        const width  = height * aspect;
+
+        // Base logo
+        const geo = new THREE.PlaneGeometry(width, height);
+        const baseMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+        logoBase = new THREE.Mesh(geo, baseMat);
+        hero.add(logoBase);
+
+        // Holographic ghost layer
+        const ghostTex = tex.clone(); ghostTex.needsUpdate = true;
+        const ghostMat = new THREE.MeshBasicMaterial({
+          map: ghostTex, color: 0x22d3ee, blending: THREE.AdditiveBlending,
+          transparent:true, opacity:.35, depthWrite:false
+        });
+        logoGhost = new THREE.Mesh(geo.clone(), ghostMat);
+        logoGhost.scale.set(1.03,1.03,1);
+        hero.add(logoGhost);
+
+        // Scanlines overlay
+        const slTex = scanlineTexture();
+        const slMat = new THREE.MeshBasicMaterial({
+          map: slTex, color: 0xffffff, transparent:true, opacity:.25, depthWrite:false
+        });
+        scanlines = new THREE.Mesh(new THREE.PlaneGeometry(width, height), slMat);
+        scanlines.position.z = 0.01;
+        hero.add(scanlines);
+      },
+      undefined,
+      ()=>{ hero.add(makeHalo(9)); } // fallback if logo missing
+    );
+
+    // Mouse parallax
+    let mx=0,my=0;
+    addEventListener('pointermove', e=>{
+      mx=(e.clientX/innerWidth-.5);
+      my=(e.clientY/innerHeight-.5);
+    });
+
+    const clock = new THREE.Clock();
+    function animate(){
+      const t = clock.getElapsedTime();
+
+      // star drift
+      stars.rotation.y = t*0.015;
+      stars.position.x = Math.sin(t*0.05)*3;
+      stars.position.y = Math.sin(t*0.03)*1.5;
+
+      // hero parallax
+      hero.rotation.y = mx*0.25;
+      hero.rotation.x = -my*0.12;
+
+      // ring/halo subtle movement
+      ring.rotation.z = t*0.25;
+      halo.lookAt(camera.position);
+
+      // logo rotations + hologram shimmer
+      if (logoBase && logoGhost){
+        logoBase.rotation.y = 0.25*Math.sin(t*0.6);
+        logoBase.rotation.x = 0.12*Math.sin(t*0.7);
+        logoGhost.rotation.y = logoBase.rotation.y + 0.06;
+        logoGhost.rotation.x = logoBase.rotation.x - 0.04;
+        logoGhost.position.x = Math.sin(t*1.4)*0.08;
+        logoGhost.position.y = Math.cos(t*1.1)*0.06;
+      }
+
+      // scanlines scroll
+      if (scanlines){
+        scanlines.material.map.offset.y = (t*0.12)%1;
+      }
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+    animate();
+  </script>
+
+  <!-- Ripple effect only; your login.js handles auth -->
+  <script>
+    const btn = document.getElementById('submit');
+    if (btn){
+      btn.addEventListener('click', e=>{
+        const r = document.createElement('span');
+        r.className = 'ripple';
+        r.style.left = e.offsetX + 'px';
+        r.style.top  = e.offsetY + 'px';
+        btn.appendChild(r);
+        setTimeout(()=> r.remove(), 650);
+      });
+    }
+  </script>
+</body>
+</html>

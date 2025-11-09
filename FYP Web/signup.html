@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AURA • Create Account</title>
+  <style>
+    :root{
+      --card-bg: rgba(255,255,255,.96);
+      --border: #e5e7eb;
+      --text:#0f172a;
+      --muted:#6b7280;
+      --accent:#2563eb;
+      --radius:14px;
+      --shadow: 0 10px 30px rgba(0,0,0,.30);
+    }
+
+    /* keep your background as-is */
+    body{
+      margin:0; height:100vh; display:flex; align-items:center; justify-content:center;
+      background:url("login.avif") no-repeat center center fixed; background-size:cover;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      color:var(--text); position:relative; overflow:hidden;
+    }
+    body::before{
+      content:""; position:absolute; inset:0; background:rgba(0,0,0,.45); z-index:0;
+    }
+
+    .card{
+      position:relative; z-index:1; width:100%; max-width:560px;
+      background:var(--card-bg); border:1px solid var(--border);
+      border-radius:var(--radius); box-shadow:var(--shadow); padding:22px;
+    }
+
+    h2{ margin:0 0 6px; font-size:1.4rem; font-weight:800 }
+    .hint{ margin:0 0 14px; color:var(--muted); font-size:.95rem }
+
+    .row{ display:flex; gap:10px; flex-wrap:wrap; }
+    .row + .row{ margin-top:10px; }
+
+    input, select, button{
+      font:inherit;
+    }
+    input, select{
+      flex:1 1 240px; min-width:200px;
+      border:1px solid var(--border); border-radius:10px; padding:11px 12px; font-size:1rem;
+      background:#fff; color:var(--text);
+    }
+    input:focus, select:focus{
+      outline:0; border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.18);
+    }
+
+    .actions{ display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+    .btn{
+      border:0; border-radius:10px; padding:11px 16px; font-weight:700; cursor:pointer; font-size:1rem;
+    }
+    .btn-primary{ background:var(--accent); color:#fff; }
+    .btn-ghost{ background:#eef2f7; color:#0f172a; }
+
+    .note{ margin-top:10px; color:var(--muted); font-size:.9rem }
+
+    /* hidden rows that appear based on role */
+    .hidden{ display:none !important; }
+  </style>
+
+  <!-- keep your existing logic if you want; this page is self-sufficient for UI only -->
+  <script type="module" src="register.js" defer></script>
+  <script type="module" src="admin.js" defer></script>
+</head>
+<body>
+  <div class="card" role="region" aria-labelledby="title">
+    <h2 id="title">Create Account</h2>
+    <p class="hint">Fill in the details below. A temporary password will be set and the user will verify by email.</p>
+
+    <!-- same IDs preserved -->
+    <div class="row">
+      <input id="newName"  placeholder="Full name" />
+      <input id="newEmail" type="email" placeholder="Email" />
+    </div>
+
+    <div class="row">
+      <select id="newRole" aria-label="Select role">
+        <option value="">Select role</option>
+        <option value="technician">Technician</option>
+        <option value="user">User</option>
+      </select>
+      <input id="newPhone" inputmode="numeric" placeholder="Contact number" />
+    </div>
+
+    <!-- technician only -->
+    <div class="row hidden" id="rowTech">
+      <select id="techCategory">
+        <option value="">Select category</option>
+        <option value="General">General</option>
+        <option value="Hardware">Hardware</option>
+        <option value="Software">Software</option>
+        <option value="Network">Network</option>
+        <option value="Account">Account</option>
+      </select>
+    </div>
+
+    <!-- user only -->
+    <div class="row hidden" id="rowDept">
+      <select id="newDept">
+        <option value="">Department</option>
+        <option>JABATAN TEKNOLOGI MAKLUMAT & KOMUNIKASI</option>
+        <option>JABATAN REKABENTUK & KOMUNIKASI VISUAL</option>
+        <option>JABATAN MATEMATIK, SAINS & KOMPUTER</option>
+        <option>JABATAN PENGAJIAN AM</option>
+        <option>JABATAN HAL EHWAL PELAJAR</option>
+      </select>
+    </div>
+
+    <div class="actions">
+      <button id="btnCreate" class="btn btn-primary">Create</button>
+      <button id="btnBack" class="btn btn-ghost">Back</button>
+    </div>
+
+    <div class="note">
+      New users must verify email. After verification, first login will force password change.
+    </div>
+  </div>
+
+  <!-- tiny UI-only script to reveal Category/Department based on role -->
+  <script>
+    const role = document.getElementById('newRole');
+    const rowTech = document.getElementById('rowTech');
+    const rowDept = document.getElementById('rowDept');
+    const techSel = document.getElementById('techCategory');
+    const deptSel = document.getElementById('newDept');
+
+    function toggleRoleUI(){
+      const v = (role.value || '').toLowerCase();
+      if (v === 'technician'){
+        rowTech.classList.remove('hidden');   techSel.removeAttribute('disabled');
+        rowDept.classList.add('hidden');      deptSel.setAttribute('disabled','');
+      } else if (v === 'user'){
+        rowDept.classList.remove('hidden');   deptSel.removeAttribute('disabled');
+        rowTech.classList.add('hidden');      techSel.setAttribute('disabled','');
+      } else {
+        rowTech.classList.add('hidden');      techSel.setAttribute('disabled','');
+        rowDept.classList.add('hidden');      deptSel.setAttribute('disabled','');
+      }
+    }
+    role?.addEventListener('change', toggleRoleUI);
+    toggleRoleUI(); // initialize on load
+  </script>
+</body>
+</html>

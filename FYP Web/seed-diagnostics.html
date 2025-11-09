@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Diagnostics Seeder</title>
+  <style>
+    body { background:#111; color:#eee; font-family:system-ui; padding:24px; }
+    button { padding:10px 16px; background:#444; color:#eee; border:0; border-radius:6px; cursor:pointer; }
+    button:disabled { opacity:0.4; cursor:not-allowed; }
+    pre { margin-top:16px; background:#000; padding:12px; border-radius:8px; max-height:60vh; overflow:auto; }
+  </style>
+</head>
+<body>
+  <h2>Diagnostics Seeder</h2>
+  <p>Click the button once to seed 15 rules per category.</p>
+  <button id="run">Seed now</button>
+  <pre id="log"></pre>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+    // === YOUR CONFIG ===
+   const firebaseConfig = {
+  apiKey: "AIzaSyAQnERziOOCtj8oHcVJzRXMsh5-ttA5nBc",
+  authDomain: "aura-support-ticket-system.firebaseapp.com",
+  projectId: "aura-support-ticket-system",
+  storageBucket: "aura-support-ticket-system.firebasestorage.app",
+  messagingSenderId: "363377520981",
+  appId: "1:363377520981:web:2a691829a15977e5cb3fdc",
+  measurementId: "G-ZZ0F1EYLHW"
+};
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const btn = document.getElementById("run");
+    const logEl = document.getElementById("log");
+    const log = (m) => (logEl.textContent += m + "\n");
+
+    // ----- Data -----
+    const CATS = {
+      General: [
+        { title:"Device overheating", kw:["hot","overheat","warm"], steps:["Let it cool 10–15 min","Close heavy apps","Clean vents/dust"] },
+        { title:"Slow performance", kw:["slow","lag","hang"], steps:["Close background apps","Clear temp/cache","Keep 20% free storage"] },
+        { title:"Frequent restarts", kw:["restart loop","rebooting"], steps:["Remove new peripherals","Undo last update/driver","Run diagnostics"] },
+        { title:"App keeps crashing", kw:["app crash","force close"], steps:["Update app","Clear app cache","Reinstall if needed"] },
+        { title:"Battery drains fast", kw:["battery drain","low battery"], steps:["Lower brightness","Disable background sync","Check battery health"] },
+      ],
+      Hardware: [
+        { title:"Monitor no display", kw:["no display","black screen","monitor"], steps:["Reseat cable","Change input/port","Test another monitor/cable"] },
+        { title:"Keyboard not working", kw:["keyboard","usb","not working"], steps:["Try other USB port","Test on another PC","Check Device Manager"] },
+        { title:"Mouse not responding", kw:["mouse freeze","cursor stuck"], steps:["New USB port","Replace battery/cable","Test on another PC"] },
+        { title:"Printer no ink", kw:["printer","ink","no ink"], steps:["Refill/replace ink/toner","Reseat cartridge","Run test print"] },
+        { title:"Disk making noise", kw:["clicking","hdd noise"], steps:["Backup now","Check SMART","Plan replacement"] },
+      ],
+      Software: [
+        { title:"OS won’t update", kw:["update failed","windows update error"], steps:["Free 10GB","Run troubleshooter","Retry on stable network"] },
+        { title:"Blue screen error", kw:["bsod","stop code"], steps:["Note stop code","Roll back drivers","Run mem/disk checks"] },
+        { title:"App won’t install", kw:["install failed","setup error"], steps:["Run as admin","Check disk space","Temporarily disable AV"] },
+        { title:"License/activation issue", kw:["activation","license"], steps:["Sign in correct account","Re-enter key","Contact vendor if blocked"] },
+        { title:"Antivirus false positive", kw:["blocked file","false positive"], steps:["Review quarantine","Whitelist if safe","Update definitions"] },
+      ],
+      Network: [
+        { title:"Wi-Fi no internet", kw:["wifi","no internet","disconnect"], steps:["Power-cycle router","Reconnect SSID","Verify DHCP"] },
+        { title:"Ethernet unplugged", kw:["network cable unplugged","lan down"], steps:["Reseat both ends","Try other switch port","Replace cable"] },
+        { title:"Slow network speed", kw:["slow internet","buffering"], steps:["Speed test","Use 5GHz/closer AP","Limit heavy downloads"] },
+        { title:"Captive portal blocked", kw:["login page wifi","hotel wifi"], steps:["Open http site","Disable custom DNS","Accept T&C page"] },
+        { title:"DNS resolution issue", kw:["dns","cannot resolve"], steps:["Flush DNS","Set public DNS","Restart adapter"] },
+      ],
+      Account: [
+        { title:"Password reset", kw:["forgot password","reset"], steps:["Use reset flow","Verify email/phone","Update recovery options"] },
+        { title:"Account locked", kw:["locked","too many attempts"], steps:["Wait lockout","Verify identity","Reset password securely"] },
+        { title:"MFA code not received", kw:["otp not received","2fa issue"], steps:["Sync device time","Try backup method","Update authenticator"] },
+        { title:"Access denied to app", kw:["permission denied","no access"], steps:["Confirm role/group","Request access","Re-login"] },
+        { title:"Profile sync conflict", kw:["profile not syncing","account mismatch"], steps:["Sign out/in","Clear cached creds","Use single account"] },
+      ],
+    };
+    const EXTRA_SYNS = {
+      General: [["throttle"],["freeze"],["overload"]],
+      Hardware: [["peripheral"],["usb port"],["faulty cable"]],
+      Software: [["update stuck"],["installer"],["runtime error"]],
+      Network: [["network drop"],["packet loss"],["ip conflict"]],
+      Account: [["locked out"],["2-step"],["auth failed"]],
+    };
+    const pickSeverity = (cat, title) => {
+      const t = title.toLowerCase();
+      if (cat==="Network" && (t.includes("no internet")||t.includes("dns")||t.includes("ip"))) return "high";
+      if (cat==="Hardware" && (t.includes("no display")||t.includes("disk"))) return "high";
+      if (t.includes("slow")||t.includes("performance")) return "low";
+      return "medium";
+    };
+
+    async function seedDiagnostics() {
+      const col = collection(db, "diagnostics");
+      const cats = Object.keys(CATS);
+      for(const cat of cats){
+        const base = CATS[cat].slice();
+        let i=0;
+        while(base.length<15 && i<40){
+          const pick = CATS[cat][i % CATS[cat].length];
+          const syn = (EXTRA_SYNS[cat] && EXTRA_SYNS[cat][i % EXTRA_SYNS[cat].length]) || [];
+          base.push({
+            title: pick.title + " (variant " + ((i%7)+2) + ")",
+            kw: [...new Set([...pick.kw, ...syn])],
+            steps: pick.steps
+          });
+          i++;
+        }
+        let idx=1;
+        for(const rule of base){
+          const docData = {
+            title: rule.title,
+            category: cat.toLowerCase(),
+            severity: pickSeverity(cat, rule.title),
+            keywords: rule.kw,
+            steps: rule.steps,
+            confidenceThreshold: 0.55,
+            version: 1,
+            active: true,
+            createdAt: serverTimestamp()
+          };
+          await addDoc(col, docData);
+          log(`Added ${cat} ${idx++}: ${docData.title}`);
+        }
+      }
+      log("Seeding complete: 15 rules per category.");
+    }
+
+    btn.onclick = async () => {
+      btn.disabled = true;
+      try {
+        const email = prompt("Super admin email:");
+        const pass = prompt("Password:");
+        const cred = await signInWithEmailAndPassword(auth, email, pass);
+        const uid = cred.user.uid;
+        log("Signed in: " + uid);
+
+        const snap = await getDoc(doc(db, "users", uid));
+        const role = snap.exists() ? snap.data().role : "none";
+        log("Role: " + role);
+        if (role !== "super_admin") throw new Error("Not a super_admin account!");
+
+        await seedDiagnostics();
+        alert("Done. Check your Firestore diagnostics collection.");
+      } catch(e) {
+        log("ERROR: " + e.message);
+        btn.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>
